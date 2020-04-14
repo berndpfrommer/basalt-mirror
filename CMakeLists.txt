@@ -277,6 +277,35 @@ if(realsense2_FOUND)
   target_link_libraries(basalt_rs_t265_vio basalt realsense2::realsense2 pangolin)
 endif()
 
+set(INCLUDE_INSTALL_DIR include)
+set(LIB_INSTALL_DIR lib )
+set(SYSCONFIG_INSTALL_DIR etc/basalt )
+set(CONFIG_INSTALL_DIR ${LIB_INSTALL_DIR}/Basalt/cmake )
+
+
+include(CMakePackageConfigHelpers)
+# generate the config file that includes the exports
+configure_package_config_file(Config.cmake.in
+ "${CMAKE_CURRENT_BINARY_DIR}/BasaltConfig.cmake"
+  INSTALL_DESTINATION ${CONFIG_INSTALL_DIR}
+  PATH_VARS INCLUDE_INSTALL_DIR SYSCONFIG_INSTALL_DIR LIB_INSTALL_DIR
+#  NO_SET_AND_CHECK_MACRO
+#  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+# generate the version file for the config file
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/BasaltConfigVersion.cmake"
+  VERSION "${Basalt_VERSION_MAJOR}.${Basalt_VERSION_MINOR}"
+  COMPATIBILITY AnyNewerVersion
+)
+
+# install the configuration file
+install(FILES
+  ${CMAKE_CURRENT_BINARY_DIR}/BasaltConfig.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/BasaltConfigVersion.cmake
+  DESTINATION ${CONFIG_INSTALL_DIR}
+)
 
 
 install(TARGETS basalt_calibrate basalt_calibrate_imu basalt_vio_sim basalt_mapper_sim basalt_mapper_sim_naive basalt_mapper basalt_opt_flow basalt_vio basalt_kitti_eval basalt_time_alignment basalt
@@ -284,6 +313,9 @@ install(TARGETS basalt_calibrate basalt_calibrate_imu basalt_vio_sim basalt_mapp
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
   ARCHIVE DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+
+install(EXPORT BasaltTargets
+	FILE BasaltTargets.cmake DESTINATION ${CONFIG_INSTALL_DIR})
 
 if(realsense2_FOUND)
     install(TARGETS basalt_rs_t265_record basalt_rs_t265_vio
@@ -299,6 +331,11 @@ install(PROGRAMS ${SCRIPTS_TO_INSTALL} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 file(GLOB CONFIG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/*.json")
 install(FILES ${CONFIG_FILES}
   DESTINATION ${CMAKE_INSTALL_PREFIX}/etc/basalt)
+
+install(
+  DIRECTORY include
+  DESTINATION ${CMAKE_INSTALL_PREFIX}
+)
 
 
 # Replace install() to do-nothing macro.
