@@ -43,8 +43,30 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <tbb/parallel_reduce.h>
 
 #include <chrono>
+#include <iomanip>
+
+using std::fixed;
 
 namespace basalt {
+std::ostream& operator<<(std::ostream& os, const OpticalFlowResult& ofr) {
+  os << "t_ns:       " << ofr.t_ns << std::endl;
+  for (int i = 0; i < (int)ofr.observations.size(); i++) {
+    os << " camera: " << i << std::endl;
+    for (const auto& kp : ofr.observations[i]) {
+      os << " " << kp.first;
+      for (int j = 0; j < 6; j++) {
+        os << " " << kp.second.data()[j];
+      }
+      os << std::endl;
+    }
+  }
+  return (os);
+}
+
+std::ostream& operator<<(std::ostream& os, const ImuData& d) {
+  os << d.t_ns << " " << d.accel.transpose() << " " << d.gyro.transpose();
+  return (os);
+}
 
 KeypointVioEstimator::KeypointVioEstimator(
     const Eigen::Vector3d& g, const basalt::Calibration<double>& calib,
@@ -87,6 +109,11 @@ KeypointVioEstimator::KeypointVioEstimator(
 
   vision_data_queue.set_capacity(10);
   imu_data_queue.set_capacity(300);
+
+  if (config.vio_debug_bad_data) {
+    imu_stamps.open("/tmp/imu_stamps.txt", std::ofstream::out);
+    image_stamps.open("/tmp/image_stamps.txt", std::ofstream::out);
+  }
 }
 
 void KeypointVioEstimator::initialize(int64_t t_ns, const Sophus::SE3d& T_w_i,
@@ -123,10 +150,16 @@ void KeypointVioEstimator::initialize(const Eigen::Vector3d& bg,
     imu_data_queue.pop(data);
     data->accel = calib.calib_accel_bias.getCalibrated(data->accel);
     data->gyro = calib.calib_gyro_bias.getCalibrated(data->gyro);
-
+    int64_t max_dt_ns =
+        std::numeric_limits<int64_t>::max();  // no limit for now
     while (true) {
       vision_data_queue.pop(curr_frame);
-
+      if (config.vio_debug_bad_data) {
+        std::cout << fixed << curr_frame->t_ns * 1e-9
+                  << " --------------------- got new frame ------- "
+                  << std::endl;
+        image_stamps << fixed << curr_frame->t_ns * 1e-9 << std::endl;
+      }
       if (config.vio_enforce_realtime) {
         // drop current frame if another frame is already in the queue.
         while (!vision_data_queue.empty()) vision_data_queue.pop(curr_frame);
@@ -174,34 +207,72 @@ void KeypointVioEstimator::initialize(const Eigen::Vector3d& bg,
 
       if (prev_frame) {
         // preintegrate measurements
-
+        if (curr_frame->t_ns < data->t_ns) {
+          std::cout << "WARNING: DROPPING OLD FRAME, imu queue size: "
+                    << imu_data_queue.size() << std::endl;
+          max_dt_ns = 0LL;  // discount measurement to zero
+          continue;
+        }
         auto last_state = frame_states.at(last_state_t_ns);
+        if (config.vio_debug_bad_data) {
+          std::cout << data->t_ns * 1e-9 << " data item time vs prev frame: "
+                    << prev_frame->t_ns * 1e-9
+                    << " curr frame: " << curr_frame->t_ns * 1e-9 << std::endl;
+        }
 
         meas.reset(new IntegratedImuMeasurement(
             prev_frame->t_ns, last_state.getState().bias_gyro,
             last_state.getState().bias_accel));
 
+        // remove any IMU updates that come before the previous frame
         while (data->t_ns <= prev_frame->t_ns) {
-          imu_data_queue.pop(data);
+          imu_data_queue.pop(data);  // this may block if there is no data!
           if (!data.get()) break;
           data->accel = calib.calib_accel_bias.getCalibrated(data->accel);
           data->gyro = calib.calib_gyro_bias.getCalibrated(data->gyro);
+          max_dt_ns = std::numeric_limits<int64_t>::max();  // use full meas
         }
 
+        // apply all IMU measurements that have come in since the last
+        // image frame was received
         while (data->t_ns <= curr_frame->t_ns) {
-          meas->integrate(*data, accel_cov, gyro_cov);
-          imu_data_queue.pop(data);
+          if (config.vio_debug_bad_data) {
+            imu_stamps << fixed << data->t_ns * 1e-9 << " pre-integration"
+                       << std::endl;
+            std::cout << fixed << data->t_ns * 1e-9
+                      << " pre-integrating imu data" << std::endl;
+          }
+          meas->integrate(*data, accel_cov, gyro_cov, max_dt_ns);
+          imu_data_queue.pop(data);  // this may block if there is no data!
           if (!data.get()) break;
           data->accel = calib.calib_accel_bias.getCalibrated(data->accel);
           data->gyro = calib.calib_gyro_bias.getCalibrated(data->gyro);
+          max_dt_ns = std::numeric_limits<int64_t>::max();  // use full meas
         }
-
+        // The "data" IMU update occured *after* the current image frame.
+        // We still apply some of it to the current pseudo measurement, just
+        // with a smaller dt. The rest of the measurement (and remaining dt)
+        // will be used when the next image frame arrives
         if (meas->get_start_t_ns() + meas->get_dt_ns() < curr_frame->t_ns) {
           if (!data.get()) break;
+          if (config.vio_debug_bad_data) {
+            imu_stamps << fixed << data->t_ns * 1e-9 << " boundary"
+                       << std::endl;
+            std::cout << fixed << data->t_ns * 1e-9
+                      << " finishing imu data with dt "
+                      << (curr_frame->t_ns -
+                          (meas->get_start_t_ns() + meas->get_dt_ns())) *
+                             1e-9
+                      << std::endl;
+          }
           int64_t tmp = data->t_ns;
+          // adjust the time stamp. This means the velocities will be
+          // integrated only for the time between the previous IMU
+          // measurement and the current image frame
           data->t_ns = curr_frame->t_ns;
-          meas->integrate(*data, accel_cov, gyro_cov);
+          meas->integrate(*data, accel_cov, gyro_cov, max_dt_ns);
           data->t_ns = tmp;
+          max_dt_ns = std::numeric_limits<int64_t>::max();  // use full meas
         }
       }
 

@@ -120,7 +120,7 @@ void KeypointVioEstimator::linearizeAbsIMU(
           d_res_d_bga.transpose() * kv.second.get_cov_inv() * res;
 
       // difference between biases
-      double dt = kv.second.get_dt_ns() * 1e-9;
+      double dt = kv.second.get_adj_dt_ns() * 1e-9;
       {
         Eigen::Vector3d gyro_bias_weight_dt = gyro_bias_weight / dt;
 
@@ -210,7 +210,7 @@ void KeypointVioEstimator::computeImuError(
 
       imu_error += 0.5 * res.transpose() * kv.second.get_cov_inv() * res;
 
-      double dt = kv.second.get_dt_ns() * 1e-9;
+      const double dt = kv.second.get_adj_dt_ns() * 1e-9;
       {
         Eigen::Vector3d gyro_bias_weight_dt = gyro_bias_weight / dt;
         Eigen::Vector3d res_bg =

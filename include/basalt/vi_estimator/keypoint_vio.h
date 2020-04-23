@@ -51,6 +51,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <basalt/vi_estimator/ba_base.h>
 #include <basalt/vi_estimator/vio_estimator.h>
 
+#include <fstream>
+
 namespace basalt {
 
 class KeypointVioEstimator : public VioEstimatorBase,
@@ -213,6 +215,8 @@ class KeypointVioEstimator : public VioEstimatorBase,
   bool opt_started;
 
   VioConfig config;
+  std::ofstream imu_stamps;
+  std::ofstream image_stamps;
 
   double lambda, min_lambda, max_lambda, lambda_vee;
 
