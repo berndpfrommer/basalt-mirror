@@ -59,6 +59,7 @@ VioConfig::VioConfig() {
   vio_new_kf_keypoints_thresh = 0.7;
 
   vio_debug = false;
+  vio_debug_bad_data = false;
   vio_obs_std_dev = 0.5;
   vio_obs_huber_thresh = 1.0;
   vio_min_triangulation_dist = 0.05;
@@ -135,6 +136,7 @@ void serialize(Archive& ar, basalt::VioConfig& config) {
   ar(CEREAL_NVP(config.vio_min_frames_after_kf));
   ar(CEREAL_NVP(config.vio_new_kf_keypoints_thresh));
   ar(CEREAL_NVP(config.vio_debug));
+  // ar(CEREAL_NVP(config.vio_debug_bad_data)); // no need
   ar(CEREAL_NVP(config.vio_max_iterations));
   ar(CEREAL_NVP(config.vio_outlier_threshold));
   ar(CEREAL_NVP(config.vio_filter_iteration));

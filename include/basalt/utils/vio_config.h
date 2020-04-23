@@ -57,6 +57,7 @@ struct VioConfig {
   int vio_min_frames_after_kf;
   float vio_new_kf_keypoints_thresh;
   bool vio_debug;
+  bool vio_debug_bad_data;
 
   double vio_outlier_threshold;
   int vio_filter_iteration;
