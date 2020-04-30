@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>basalt</name>
+  <version>1.0.0</version>
+  <description>catkin package for basalt</description>
+  <maintainer email="bernd.pfrommer@gmail.com">Bernd Pfrommer</maintainer>
+
+  <license>Apache-2.0</license>
+  <buildtool_depend>catkin</buildtool_depend>
+  <depend>eigen</depend>
+</package>
