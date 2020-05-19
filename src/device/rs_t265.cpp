@@ -80,6 +80,10 @@ RsT265Device::RsT265Device(bool manual_exposure, int skip_frames,
     sensor.set_option(rs2_option::RS2_OPTION_ENABLE_AUTO_EXPOSURE, 0);
     sensor.set_option(rs2_option::RS2_OPTION_EXPOSURE, exposure_value * 1000);
   }
+
+  // the following call is
+  // necessary for recent librealsense releases, at least since 2.34
+  device.hardware_reset();
 }
 
 RsT265Device::~RsT265Device(){};
