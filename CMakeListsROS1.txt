@@ -358,8 +358,12 @@ install(
 )
 
 install(
-  DIRECTORY thirdparty/basalt-headers/thirdparty
-  DESTINATION ${CMAKE_INSTALL_PREFIX}
+  DIRECTORY
+  thirdparty/basalt-headers/thirdparty/eigen/Eigen
+  thirdparty/basalt-headers/thirdparty/Sophus/sophus
+  thirdparty/basalt-headers/thirdparty/cereal/include/cereal
+  thirdparty/basalt-headers/include/basalt
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/include
 )
 
 

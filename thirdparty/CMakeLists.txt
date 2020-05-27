@@ -25,7 +25,7 @@ macro(add_definitions)
     _add_definitions(${ARGN})
   endif()
 endmacro()
-add_subdirectory(opengv EXCLUDE_FROM_ALL)
+add_subdirectory(opengv)
 
 # Hack to disable CPack in Pangolin.
 macro(include)
