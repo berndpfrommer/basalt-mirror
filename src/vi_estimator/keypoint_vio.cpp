@@ -325,6 +325,14 @@ bool KeypointVioEstimator::measure(const OpticalFlowResult::Ptr& opt_flow_meas,
   // save results
   prev_opt_flow_res[opt_flow_meas->t_ns] = opt_flow_meas;
 
+  //std::cout << *opt_flow_meas << std::endl;
+  const size_t nobs[2] = {opt_flow_meas->observations[0].size(),
+                          opt_flow_meas->observations[1].size()};
+  const size_t nobs_tot = nobs[0] + nobs[1];
+  if (nobs_tot > 30 && (5 * nobs[0] < nobs_tot || 5 * nobs[1] < nobs_tot)) {
+    std::cout << "WARNING: bad calib? feature cam0: " << nobs[0]
+              << " cam1: " << nobs[1] << std::endl;
+  }
   // Make new residual for existing keypoints
   int connected0 = 0;
   std::map<int64_t, int> num_points_connected;
@@ -366,7 +374,7 @@ bool KeypointVioEstimator::measure(const OpticalFlowResult::Ptr& opt_flow_meas,
 
   if (config.vio_debug) {
     std::cout << "connected0 " << connected0 << " unconnected0 "
-              << unconnected_obs0.size() << std::endl;
+              << unconnected_obs0.size() << " frames_after_kf: " << frames_after_kf << " vs  " << config.vio_min_frames_after_kf << std::endl;
   }
 
   if (take_kf) {
